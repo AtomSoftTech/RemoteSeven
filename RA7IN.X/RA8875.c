@@ -74,43 +74,6 @@ void SPI_Init(void)
 }
 
 
-/*
-//*********4W_SPI_Write()
-void SPI_Write(unsigned char dat)
-{
-	unsigned char t = 8;
-	do
-	{
-		SDI = (char)(dat & 0x80);
-		dat <<= 1;
-		SCLK = 0;	
-		//SPI_Delay();
-		SCLK = 1;
-		//SPI_Delay();
-	
-	} while ( --t != 0 );
-	//SCLK = 1;
-	//SDI = 1;
-}
-
-//*********4W_SPI_Read()
-unsigned char SPI_Read()
-{
-   unsigned char dat;
-   unsigned char t = 8;
-	SDO = 1;
-	do
-	{
-		SCLK = 0;
-        //SPI_Delay();
-		dat <<= 1;
-		if ( SDO ) dat++;
-		SCLK = 1;	
-        //SPI_Delay();
-	} while ( --t != 0 );
-	return dat;
-}
-*/
 //////////////SPI Write command
 void LCD_CmdWrite(unsigned char cmd)
 {	
@@ -738,46 +701,6 @@ void  Draw_Circle(uint X,uint Y,uint R)
 
 
 } 
-void MakeCircle(uint x0, uint y0, uint r, uint color, char filled)
-{
-  /* Set X */
-  LCD_CmdWrite(0x99);
-  LCD_DataWrite(x0&0xff);
-  LCD_CmdWrite(0x9a);
-  LCD_DataWrite(x0 >> 8);
-
-  /* Set Y */
-  LCD_CmdWrite(0x9b);
-  LCD_DataWrite(y0&0xff);
-  LCD_CmdWrite(0x9c);
-  LCD_DataWrite(y0 >> 8);
-
-  /* Set Radius */
-  LCD_CmdWrite(0x9d);
-  LCD_DataWrite(r);
-
-  /* Set Color */
-  LCD_CmdWrite(0x63);
-  LCD_DataWrite((color & 0xf800) >> 11);
-  LCD_CmdWrite(0x64);
-  LCD_DataWrite((color & 0x07e0) >> 5);
-  LCD_CmdWrite(0x65);
-  LCD_DataWrite((color & 0x001f));
-
-  /* Draw! */
-  LCD_CmdWrite(RA8875_DCR);
-  if (filled)
-  {
-    LCD_DataWrite(RA8875_DCR_CIRCLE_START | RA8875_DCR_FILL);
-  }
-  else
-  {
-    LCD_DataWrite(RA8875_DCR_CIRCLE_START | RA8875_DCR_NOFILL);
-  }
-
-  /* Wait for the command to finish */
-  waitPoll(RA8875_DCR, RA8875_DCR_CIRCLE_STATUS);
-}
 
 ///////////drawing elliptic curve
 void  Draw_Ellipse(uint X,uint Y,uint R1,uint R2)
@@ -965,352 +888,6 @@ void Test(void)
 	NextStep();
 }
 
-
-/*
-/////////////////////main////////////////////
-void main(void)
-{
-	uint i;
-	P0=0xff;
-	P1=0xff;
-	P2=0xff;
-	P3=0xff;
-    Delay100ms(5);
-
-	//	LCD_Reset(); //RC Reset on board
-	LCD_Initial();
-	Write_Dir(0X01,0X80);//display on
-
-	while(1)
-		{
-
-			//full display test
-			Test();
-
-
-			/////The FLASH reading test
-			Active_Window(0,799,0,479);//Set the work window size
-			i=1;
-			while(i<=8)
-				{	Displaypicture(i);
-					Delay100ms(5);   
-					Chk_Busy();
-					i+=1;
-					NextStep();
-				}
-
-
-			///////The FLASH image shear
-		  	CutPictrue(1,0,0,400,150,0,80);
-			Delay100ms(5);
-			NextStep();	
-	
-
-
-			/////External characters of the functional test
-		    Text_Foreground_Color1(color_white);//Set the foreground color
-			Text_Background_Color1(color_black);//Set the background color		
-			Active_Window(0,799,0,479);;//Set the work window size
-			Write_Dir(0X8E,0X80);//Start screen clearing (display window)
-		    Chk_Busy();
-			Write_Dir(0x21,0x20);//Select the external character
-			Write_Dir(0x06,0x03);//Set the frequency
-			Write_Dir(0x2E,0x80);//Font Write Type Setting Register Set up 32 x32 character mode     spacing   0 
-			Write_Dir(0x2F,0x81);//Serial Font ROM Setting GT23L32S4W
-			Write_Dir(0x05,0x28);// The waveform 3   2 byte dummy Cycle) 
-		    Write_Dir(0x22,0x80);//Full alignment is enable.The text background color . Text don't rotation. 0x zoom		
-		    Write_Dir(0x29,0x05);//Font Line Distance Setting
-	
-			FontWrite_Position(208,45);//Text written to the position
-		    Write_Dir(0x40,0x80);//Set the character mode
-		    LCD_CmdWrite(0x02);//start write data
-		    String("深圳旭日东方科技有限公司");
-		
-			Text_Foreground_Color1(color_red);//Set the foreground color
-			Write_Dir(0x2E,0x01);//Set the characters mode 16 x16 / spacing 1
-		    FontWrite_Position(100,90);//Text written to the position
-			String("TEL:755-33503874 FAX:755-33507642");
-			FontWrite_Position(100,120);//Text written to the position
-			String("WWW.BUY-DISPLAY.COM");
-			FontWrite_Position(100,150);//Text written to the position
-			String("E-mail:market@lcd-china.com");
-			FontWrite_Position(100,180);//Text written to the position
-			String("AD:Room 6G,Building A1,Zhujiang Square,Zhongxin Cheng,Longgang District, uchar                      ShenZhen,China.");
-		    Write_Dir(0x29,0x00);//Font Line Distance Setting
-		    Write_Dir(0x22,0x05);//Full alignment is disable.The text background color . Text don't rotation. 2x zoom		
-			Text_Foreground_Color1(color_green);//Set the foreground color
-			Write_Dir(0x2E,0x00);//Set the characters mode 16 x16 / spacing 0
-			FontWrite_Position(0x00,250);//Text written to the position
-			String("ER-TFTM070-5，Optional Chinese / English character library, uchar  MicroSD cord,Falsh.Font Support 2/3/4 times zoom."
-		    "     Support8/16-char 8080/6800 Series bus, uchar support serial 3/4wire SPI interface,I2C interface.Block Transfer Engine (BTE) Supports  with 2D，Geometry Accelerated Graphics Engine, uchar support DMA Direct Access FLASH。");
-			Write_Dir(0x21,0x00);//Recovery of register
-			Write_Dir(0x2F,0x00);//Recovery of register
-
-
-			////////////RA8875 internal input character test
-		    Text_Foreground_Color1(color_yellow);//Set the foreground color
-		    Write_Dir(0x2E,0x01);//Set the characters mode 16 x16 / spacing 1
-		    Write_Dir(0x40,0x80);//Set the character mode
-		    Write_Dir(0x21,0x10);//Select the internal CGROM  ISO/IEC 8859-1.
-		    FontWrite_Position(80,5);//Text written to the position
-	
-
-		    String("ShenZhen EastRising Technology .;LTD");
-	
-			Delay100ms(2);
-			NextStep();
-
-
-			//////////The cursor function test
-		    Write_Dir(0x40,0xE0);//Set the text mode cursor
-		    Write_Dir(0x41,0x00);//Close the graphics cursor
-		    Write_Dir(0x44,0x1f);//The cursor flashing cycle
-		    Write_Dir(0x4e,0x1f);//The cursor size
-		    Write_Dir(0x4f,0x1f);//The cursor size
-			Delay100ms(10);
-			NextStep();
-		
-		    Write_Dir(0x21,0x00);//Recovery of register
-		    Write_Dir(0x40,0x00);//Recovery of register
-
-  
-			////////PWM backlight control test    Need to short  J16 and open J15 on PCB .
-   			Write_Dir(0x8b,0x0f);//Backlight brightness adjustment
-			Delay100ms(3);
-			NextStep();
-   			Write_Dir(0x8b,0x3f);//Backlight brightness adjustment
-			Delay100ms(3);
-			NextStep();
-   			Write_Dir(0x8b,0xff);//Backlight brightness adjustment
-			Delay100ms(3);
-			NextStep();
-
-
-			//clear screen test:   part of the window 
-
-		   	Write_Dir(0X8E,0X80);//Began to clear the screen (display window)
-		   	Chk_Busy();		
-		   	Active_Window(40,300,100,300);//Set the work window size
-		   	Text_Background_Color1(color_green);//Set the background color
-		   	Write_Dir(0X8E,0X40);//Set the screen clearing properties window (work window)
-		   	Write_Dir(0X8E,0XC0);//Began to clear the screen
-		   	Chk_Busy();
-		     
-		   	Active_Window(300,799,200,479);//Set the work window size
-		   	Text_Background_Color1(color_cyan);//Set the background color
-		   	Write_Dir(0X8E,0X40);//Set the screen clearing properties window (work window)
-		   	Write_Dir(0X8E,0XC0);//Began to clear the screen
-		   	Chk_Busy();
-
-			/////////Memory write test
-		   	Write_Dir(0x40,0x00);
-			Active_Window(0,111,0,139);//Set the work window size	
-		   	MemoryWrite_Position(0,0);//Memory write position
-		   	LCD_CmdWrite(0x02);//start data write
-  			//112X140 dot
-  			for(i=0;i<31360;i++)
-   			{
-			    LCD_DataWrite(pic[i]);
-				Chk_Busy();
-		    }
-			Delay100ms(3);
-			NextStep();	
-	
-			/////// Geometric pattern drawing test
-			Text_Background_Color1(color_black);//Set the background color
-			Active_Window(0,799,0,479);;//Set the work window size
-	 		Write_Dir(0X8E,0X40);//Set clear screen nature ( working window )
-   			Write_Dir(0X8E,0XC0);//Began to clear the screen
-			Chk_Busy();
-
-			///////////Drawing curves
-			Draw_Ellipse(210,120,205,105);
-		    Text_Foreground_Color1(color_cyan);//Color Settings
-		    Write_Dir(0XA0,0X10);//Setting parameters
-		    Write_Dir(0XA0,0X90);//Start drawing
-			Delay10ms(5);
-		    Write_Dir(0XA0,0X91);//Start drawing
-			Delay10ms(5);
-		    Write_Dir(0XA0,0X92);//Start drawing
-			Delay10ms(5);
-		    Write_Dir(0XA0,0X93);//Start drawing
-			Delay10ms(5);
-
-			////////////drawing oval
-			Draw_Ellipse(210,120,200,100);
-			Text_Foreground_Color1(color_red);//Color Settings
-			Write_Dir(0XA0,0X00);//Setting parameters
-		    Write_Dir(0XA0,0X80);//Start drawing
-			Delay10ms(5);
-			Write_Dir(0XA0,0X40);//Set whether filling
-		    Write_Dir(0XA0,0XC0);//Start drawing
-			Delay10ms(5);
-			/////////////drawing circle
-			Draw_Circle(600,110,100);
-			Text_Foreground_Color1(color_green);//Color Settings
-			Write_Dir(0X90,0X00);//Setting parameters
-		    Write_Dir(0X90,0X40);//Start drawing
-			Delay10ms(10);		
-			Write_Dir(0X90,0X20);//Setting parameters
-		    Write_Dir(0X90,0X60);//Start drawing
-			Delay10ms(10);
-		 	/////////////drawing rectangle
-		    Draw_Line(15,225,270,460);
-		    Text_Foreground_Color1(color_blue);//Color Settings
-			Write_Dir(0X90,0X10);//Setting parameters
-		    Write_Dir(0X90,0X90);//Start drawing
-		    Delay10ms(5);
-			Write_Dir(0X90,0X30);//Setting parameters
-		    Write_Dir(0X90,0XB0);//Start drawing
-		    Delay10ms(5);
-			///////////drawing triangle
-			Draw_Line(300,420,460,270);
-		    Draw_Triangle(540,460);//draw a triangle of three point
-			Text_Foreground_Color1(color_purple);//Color Settings
-		    Write_Dir(0X90,0X01);//Setting parameters
-		    Write_Dir(0X90,0X81);//Start drawing
-		    Delay10ms(5);
-		    Write_Dir(0X90,0X21);//Setting parameters
-		    Write_Dir(0X90,0XA1);//Start drawing
-		    Delay10ms(5);
-			///////////drawing rounded rectangle
-		    Draw_Line(570,780,270,460);
-		    Draw_Ellipse(0,0,20,30);//Set Radius
-		    Text_Foreground_Color1(color_yellow);//Color Settings
-		 	Write_Dir(0XA0,0X20);//Set whether filling
-		    Write_Dir(0XA0,0XA0);//Start drawing
-			Delay10ms(5);
-		 	Write_Dir(0XA0,0X60);//Set whether filling
-		    Write_Dir(0XA0,0XE0);//Start drawing
-			Delay10ms(5);
-			///////////drawing line
-			Draw_Line(0,799,0,0);
-		    Text_Foreground_Color1(color_red);//Color Settings
-			Write_Dir(0X90,0X00);//Setting parameters
-		    Write_Dir(0X90,0X80);//Start drawing
-			Delay10ms(2);
-			Draw_Line(799,799,0,479);//drawing line
-		    Write_Dir(0X90,0X80);//Start drawing
-			Delay10ms(2);
-			Draw_Line(0,799,479,479);//drawing line
-		    Write_Dir(0X90,0X80);//Start drawing
-			Delay10ms(2);
-			Draw_Line(0,0,0,479);//drawing line
-		    Write_Dir(0X90,0X80);//Start drawing
-			Delay10ms(2);
-			NextStep();
-
-
-			////////////BTE Color Fill
-			BTE_Size(25,120);
-    		Write_Dir(0x51,0xcc);//Raster Settings
-			for(i=0;i<32;i++)
-			{
-				Text_Foreground_Color(i,0,0);
-				BTE_Source(0,i*25,0,0);//BTE starting position			 				  
-			    Write_Dir(0x50,0x80);//BET open
-			    Chk_BTE_Busy();
-			
-				Text_Foreground_Color(0,i*2,0);
-				BTE_Source(0,i*25,0,120);//BTE starting position		  
-			    Write_Dir(0x50,0x80);//BET open
-			    Chk_BTE_Busy();
-			
-				Text_Foreground_Color(0,0,i);
-				BTE_Source(0,i*25,0,240);//BTE starting position			 				  
-			    Write_Dir(0x50,0x80);//BET open
-			    Chk_BTE_Busy();
-			
-				Text_Foreground_Color(i,i*2,i);
-			    BTE_Source(0,i*25,0,360);//BTE starting position			 				  
-			    Write_Dir(0x50,0x80);//BET open
-			    Chk_BTE_Busy();
-			}
-			Delay100ms(2);
-			NextStep();
-
-			//////////BTE Color Expansion
-		    Text_Background_Color1(color_purple);//Set the background color 
-		    Text_Foreground_Color1(color_yellow);//Set the foreground color
-		    BTE_Source(0,0,0,0);//BTE starting position
-		    BTE_Size(120,100);//BTE size setting
-		    Write_Dir(0x51,0x78);//Raster setting
-		    Write_Dir(0x50,0x80);//BET open
-			Chk_Busy();
-		    LCD_CmdWrite(0x02);//start write data
-  			for(i=0;i<1500;i++)
-   			{
-			    LCD_DataWrite(pic1[i]);
-				Chk_Busy();
-    		}
-   			Chk_BTE_Busy();
-			Delay100ms(2);
-			NextStep();
-
-			////////////BTE color expansion moves
-  			BTE_Source(0,200,0,0);//BTE starting position
-  			BTE_Size(120,100);//BBTE size setting
-  			Text_Foreground_Color1(color_purple);//Set the foreground color (background color filter)
-  			Write_Dir(0x51,0xc5);//start write data
-  			Write_Dir(0x50,0x80);//BET open
-  			Delay100ms(5); 
-			NextStep();
-
-			///////////Scroll function test
-    		Scroll_Window(0,119,0,99);	//Specifies scrolling activity area
-   			i=0; 
-	 		while(i++<99){Delay10ms(10); Scroll(i,i);} //Note:  scroll offset value must be less than  scroll setting range
-		    while(i-->0){Delay10ms(10); Scroll(i,i);}       
-			while(i++<99){Delay10ms(10); Scroll(i,i);}
-		    while(i-->0){Delay10ms(10); Scroll(i,i);}
-			Delay100ms(5);
-			NextStep();
-
-
-
-			//////////Touch function test
-			//LCD_Reset();
-			//LCD_Initial();
-		
-			Active_Window(0,799,0,479);//Set the working window size
-		    Text_Foreground_Color1(color_white);//Set the foreground color
-			Text_Background_Color1(color_blue);//Set the background color
-			Write_Dir(0X8E,0X80);//Began to clear the screen (display window)
-		    Chk_Busy();
-		  	Write_Dir(0x21,0x10);//Select the internal CGROM  ISO/IEC 8859-1.
-			Write_Dir(0x22,0x00);//Full alignment is disable.The text background color . Text don't rotation. 2x zoom
-		  	FontWrite_Position(40,200);
-		  	String("Touch to display the coordinate");
-
-		  	Write_Dir(0xf0,0x04);//open interruption
-		  	Write_Dir(0x71,0x00);//set to 4-wire touch screen
-		  	Write_Dir(0x70,0xB2);//open the touch function, uchar touch the parameter settings
-
-			//Delay100ms(50);
-  			while(next)
-			{
-		       Write_Dir(0xf1,0x04);//clear INT state      Must be clean TP_interrupt 
-		       Delay10ms(5);
-		       if(Touch_Status())
-		       	{
-			  		TP();
-		       	}
-			   else
-			   	{
-				  	FontWrite_Position(100,60); 
-			      	LCD_CmdWrite(0x02);
-				  	String("X = 0000");
-				  	FontWrite_Position(100, uchar 140);
-				  	LCD_CmdWrite(0x02);
-				  	String("Y = 0000");	 
-				}
-	  		}
-
-			NextStep();
- 		}
-
-}
-*/
 
 void drawLine3(uint x0, uint x1, uint y0, uint y1, uint color)
 {
@@ -1691,6 +1268,51 @@ void OpenASI (char *filename, uint x, uint y)
     f_close(&fil);
 }
 
+void ReplaceASI (char *filename, uint x, uint y, uint w, uint h)
+{
+    UINT br;         /* File read/write count */
+    FRESULT fr;          /* FatFs return code */
+
+    FIL fil;
+    uint top, left;
+
+    //BLOCK
+    uint readY, stride;
+    uint addX;
+
+    Chk_Busy();
+    fr = f_open(&fil, filename, FA_OPEN_EXISTING | FA_READ);
+
+    stride = w*2;
+    addX = 1600;
+    for(top=0;top<h;top++)
+    {
+        WriteCommand(0x40,0x00);    // Graphics write mode
+        SetGraphicsCursorWrite(x, (y+top));
+        LCD_CmdWrite(0x02);
+
+        readY = ((top+y) * addX) + (x*2) + 0x14;
+
+        f_lseek(&fil, readY);
+        fr = f_read(&fil, IMAGE_BUFF, stride, &br);  /* Read a chunk of source file */
+        if (fr != FR_OK) break;
+
+        Chk_Busy();
+        CS_LOW(LCD);
+        SPI_Write(0x00);         // Cmd: write data
+
+        for(left=0;left<stride;left+=2)
+        {
+            SPI_Write(IMAGE_BUFF[left]);
+            SPI_Write(IMAGE_BUFF[left+1]);
+        }
+
+        CS_HIGH();
+    }
+
+    CS_HIGH();
+    f_close(&fil);
+}
 char isImageButton (ImageButton btn)
 {
     char isInX = 0;
