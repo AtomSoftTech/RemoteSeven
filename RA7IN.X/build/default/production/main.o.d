@@ -9,4 +9,5 @@ integer.h  \
 ffconf.h  \
 diskio.h  \
 ir.h  \
-ircodes.h 
+ircodes.h  \
+main.h 

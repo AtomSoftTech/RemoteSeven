@@ -193,6 +193,8 @@ void WriteCommandW(uchar command, uint data);
 void WriteCommand(unsigned char command, unsigned int data);
 void putPixelStream(uchar * p, uint count, uint x, uint y);
 void OpenASI (char *filename, uint x, uint y);
+void ReplaceASI (char *filename, uint x, uint y, uint w, uint h);
 char isImageButton (ImageButton btn);
+void BtnClick(Button btn);
 
 #endif

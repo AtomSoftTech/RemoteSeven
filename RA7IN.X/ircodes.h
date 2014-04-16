@@ -112,7 +112,7 @@
 #define DYNEX_TV_VIDEO 0X32
 #define DYNEX_TV_INPUT 0XB8
 #define DYNEX_TV_TV 0XF2
-#define DYNEX_TV_POWER 0X0F //015
+#define DYNEX_TV_POWER 0XF0 //0x0F//015
 
 #endif	/* IRCODES_H */
 

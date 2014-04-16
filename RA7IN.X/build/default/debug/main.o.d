@@ -7,4 +7,6 @@ ft5206.h  \
  ff.h  \
 integer.h  \
 ffconf.h  \
-diskio.h 
+diskio.h  \
+ir.h  \
+ircodes.h 

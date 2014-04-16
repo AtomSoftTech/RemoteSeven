@@ -18,10 +18,12 @@
 #define SPI_SLOWEST 480     //100KHz
 #define SPI_SLOW    120     //400KHz
 #define SPI_MED     10      //4.8MHz
+#define SPI_MED1     5       //9.6MHz
+#define SPI_MED2     3       //16MHz
 #define SPI_FAST    2       //24MHz
 #define SPI_FASTEST 1       //48MHz
 //-----------------------
-// CHIP SELECTS
+// CHIP SELECTS1
 //-----------------------
 #define SD_CS FUB_P30
 #define SD_CS_LOW()       PORTClearBits(SD_CS);

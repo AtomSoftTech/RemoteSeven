@@ -22,6 +22,8 @@
 #include "ir.h"
 #include "ircodes.h"
 
+#include "main.h"
+
 #pragma config PMDL1WAY = OFF           // Peripheral Module Disable Configuration (Allow multiple reconfigurations)
 #pragma config IOL1WAY = OFF            // Peripheral Pin Select Configuration (Allow multiple reconfigurations)
 #pragma config FUSBIDIO = OFF           // USB USID Selection (Controlled by Port Function)
@@ -127,165 +129,7 @@ void WriteString (char *text, uint x, uint y, uint fcolor, uint bcolor)
 char LastFile[13];
 uint myW = 800;
 uint myH = 438;
-
-void saveImage(void)
-{
-    uint x,y,w,h;
-    uint count,count2;
-    FRESULT res;
-    UINT br, bw;         /* File read/write count */
-    FRESULT fr;          /* FatFs return code */
-    uint len;
-    uint last;
-
-    do
-    {
-        sprintf(LastFile, "image%d.dat\0",imageCount++);
-        fr = f_open(&fil, LastFile, FA_OPEN_EXISTING);
-        f_close(&fil);
-        if(fr == FR_NO_FILE) break;
-    } while(1);
-
-    fr = f_open(&fil, LastFile, FA_CREATE_ALWAYS | FA_WRITE);
-
-    //void LCD_ReadBuff(char *buff, uint len)
-    x = 0;
-    y = 480-myH;
-    w = myW;
-    h = myH;
-
-    WriteCommand(0x40,0x00);    // Graphics mode
-    WriteCommand(0x45,0x00);    // Graphics mode - READ LEFT TO RIGHT then TOP TO BOTTOM
-    SetGraphicsCursorRead(x, y);
-    LCD_CmdWrite(0x02);
-
-
-    len = ((w*h)*2)/IMAGEBUFF_LEN;
-    last = (((w*h)*2)%IMAGEBUFF_LEN);
-    if(last > 0) len++;
-
-    while(len--)
-    {
-
-        if(len==1)
-            count2 = last;
-        else
-            count2 = IMAGEBUFF_LEN;
-
-        CS_LOW(LCD);
-        SPI_Write(0x40);         // Cmd: read data
-
-        for(count = 0; count < count2;count++)
-        {
-            FILE_IN_BUFF[count++] = SPI_Read();
-            FILE_IN_BUFF[count++] = SPI_Read();
-            FILE_IN_BUFF[count++] = SPI_Read();
-            FILE_IN_BUFF[count] = SPI_Read();
-        }
-        CS_HIGH();
-
-        fr = f_write(&fil, FILE_IN_BUFF, count2, &bw);            /* Write it to the destination file */
-        if (fr) break; /* error or disk full */
-    }
-
-    f_close(&fil);
-
-}
-
-void openImage(void)
-{
-    uint x,y,w,h;
-    uint count,count2;
-    FRESULT res;
-    UINT br, bw;         /* File read/write count */
-    FRESULT fr;          /* FatFs return code */
-    uint len;
-    uint last;
-
-    fr = f_open(&fil, LastFile, FA_OPEN_EXISTING | FA_READ);
-
-    x = 0;
-    y = 480-myH;
-    w = myW;
-    h = myH;
-
-    WriteCommand(0x40,0x00);    // Graphics write mode
-    SetGraphicsCursorWrite(x, y);
-    LCD_CmdWrite(0x02);
-
-
-    len = ((w*h)*2)/IMAGEBUFF_LEN;
-    last = (((w*h)*2)%IMAGEBUFF_LEN);
-    if(last > 0) len++;
-
-    while(len--)
-    {
-        if(len==1)
-            count2 = last;
-        else
-            count2 = IMAGEBUFF_LEN;
-
-        fr = f_read(&fil, FILE_IN_BUFF, count2, &br);  /* Read a chunk of source file */
-        if (fr != FR_OK) break;
-
-        Chk_Busy();
-        CS_LOW(LCD);
-
-        SPI_Write(0x00);         // Cmd: write data
-
-        for(count = 0; count < count2;count++)
-            SPI_Write(FILE_IN_BUFF[count]);
-
-        CS_HIGH();
-
-        //if (br != count2) break; /* error or eof */
-
-    }
-
-    f_close(&fil);
-
-}
-
-ImageButton btnPlay;
-ImageButton btnStop;
-ImageButton btnPause;
-ImageButton btnRew;
-ImageButton btnFfw;
-ImageButton btnRec;
-ImageButton btnPwr;
-
-ImageButton btnZero;
-ImageButton btnOne;
-ImageButton btnTwo;
-ImageButton btnThree;
-ImageButton btnFour;
-ImageButton btnFive;
-ImageButton btnSix;
-ImageButton btnSeven;
-ImageButton btnEight;
-ImageButton btnNine;
-ImageButton btnStar;
-ImageButton btnPound;
-
-ImageButton btnGuide;
-ImageButton btnMenu;
-ImageButton btnInfo;
-ImageButton btnExit;
-ImageButton btnHdmi;
-
-ImageButton btnVolU;
-ImageButton btnVolD;
-
-ImageButton btnChU;
-ImageButton btnChD;
-
-ImageButton btnUp;
-ImageButton btnDown;
-ImageButton btnLeft;
-ImageButton btnRight;
-ImageButton btnEnter;
-
-
+uint BLSTAT = 1;
 void main ()
 {
     uint tryCount = 1;
@@ -350,224 +194,180 @@ void main ()
     sprintf(messageOut, "SD Card Filesystem... FAT%d  \0", FFST);
     String(messageOut);
 
-    FontWrite_Position(10,110);
-
-    sprintf(messageOut, "Press anywhere to continue.\0");
-    String(messageOut);
-
-    //while(CheckPen() != 0);
-    //Delay100ms(1);  //Allow readability
-
-    ClearScreen(0);
-    Chk_Busy();
-
-    SetColors(0,RGB16(40,43,48));
-    ClearScreen(0);
-    Chk_Busy();
+    SpiChnClose(2);
+    SpiInitDevice(2,SPI_FAST,0);
     
-    //Some other init stuff
-    InitButtons();
     init_ir();
 
+    //ReplaceASI
+    Write_Dir(0x40,0x80);//Set the character mode
+    Write_Dir(0x21,0x10);//Select the internal CGROM  ISO/IEC 8859-1.
+    Write_Dir(0x22,0x00);//Full alignment is disable.The text background color . Text don't rotation. 2x zoom
+
+    OpenASI("main.asi",0,0);
+
+    InitButtons();
+    initProgBtn();
+
+    OpenASI("ch.asi",ch.left,ch.top);
+    OpenASI("vol.asi",vol.left,vol.top);
 
     while(1)
     {
+        while(!BLSTAT)
+        {
+            if(isProg())
+            {
+                BLSTAT = 1;
+                Backlight(RA8875_PWM_CLK_DIV1,100);
+                Delay1ms(128);
+            }
+        }
 
-        Write_Dir(0x40,0x80);//Set the character mode
-        Write_Dir(0x21,0x10);//Select the internal CGROM  ISO/IEC 8859-1.
-        Write_Dir(0x22,0x00);//Full alignment is disable.The text background color . Text don't rotation. 2x zoom
-
-
+        if(isProg())
+        {
+            Backlight(0,0);
+            BLSTAT = 0;
+            Delay1ms(100);
+        }
         if(CheckPen() == 0)        //The touch screen is pressed
         {
             do
             {
                 ft5x0x_read_data();
 
-                ////////////////////////////////////
-                ////////////////////////////////////
-                ////////////////////////////////////
-                if(isImageButton(btnOne))
-                {
-                    ImgBtnClick(btnOne);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_1);
+                if(isButton(guide)) {
+                    BtnClick(guide); IR_TWC(TWC_CABLE, TWC_CABLE_GUIDE);
                 }
-                if(isImageButton(btnTwo))
-                {
-                    ImgBtnClick(btnTwo);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_2);
+                if(isButton(menu)) {
+                    BtnClick(menu); IR_TWC(TWC_CABLE, TWC_CABLE_MENU);
                 }
-                if(isImageButton(btnThree))
-                {
-                    ImgBtnClick(btnThree);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_3);
+                if(isButton(info)) {
+                    BtnClick(info); IR_TWC(TWC_CABLE, TWC_CABLE_INFO);
                 }
-                if(isImageButton(btnFour))
-                {
-                    ImgBtnClick(btnFour);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_4);
+                if(isButton(source)) {
+                    BtnClick(source); IR_DYNEX(DYNEX, DYNEX_TV,DYNEX_TV_INPUT);
                 }
-                if(isImageButton(btnFive))
-                {
-                    ImgBtnClick(btnFive);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_5);
+                if(isButton(Exit)) {
+                    BtnClick(Exit); IR_TWC(TWC_CABLE, TWC_CABLE_EXIT);
                 }
-                if(isImageButton(btnSix))
-                {
-                    ImgBtnClick(btnSix);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_6);
+                if(isButton(tv_power)) {
+                    BtnClick(tv_power); IR_DYNEX(DYNEX, DYNEX_TV,DYNEX_TV_POWER);
                 }
-                if(isImageButton(btnSeven))
-                {
-                    ImgBtnClick(btnSeven);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_7);
+                if(isButton(dvr_jmp)) {
+                    BtnClick(dvr_jmp); IR_TWC(TWC_CABLE, TWC_CABLE_JMPBCK);
                 }
-                if(isImageButton(btnEight))
-                {
-                    ImgBtnClick(btnEight);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_8);
+                if(isButton(dvr_list)) {
+                    BtnClick(dvr_list); IR_TWC(TWC_CABLE, TWC_CABLE_LIST);
                 }
-                if(isImageButton(btnNine))
-                {
-                    ImgBtnClick(btnNine);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_9);
+                if(isButton(dvr_live)) {
+                    BtnClick(dvr_live); IR_TWC(TWC_CABLE, TWC_CABLE_LIVE);
                 }
-                if(isImageButton(btnZero))
-                {
-                    ImgBtnClick(btnZero);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_0);
+                if(isButton(dvr_stop)) {
+                    BtnClick(dvr_stop); IR_TWC(TWC_CABLE, TWC_CABLE_STOP);
                 }
-                if(isImageButton(btnStar))
-                {
-                    ImgBtnClick(btnStar);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_STAR);
+                if(isButton(dvr_rec)) {
+                    BtnClick(dvr_rec); IR_TWC(TWC_CABLE, TWC_CABLE_RECORD);
                 }
-                if(isImageButton(btnPound))
-                {
-                    ImgBtnClick(btnPound);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_POUND);
+                if(isButton(dvr_pause)) {
+                    BtnClick(dvr_pause); IR_TWC(TWC_CABLE, TWC_CABLE_PAUSE);
                 }
-                ////////////////////////////////////
-                ////////////////////////////////////
-                ////////////////////////////////////
-                if(isImageButton(btnStop))
-                {
-                    ImgBtnClick(btnStop);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_STOP);
+                if(isButton(dvr_rew)) {
+                    BtnClick(dvr_rew); IR_TWC(TWC_CABLE, TWC_CABLE_REWIND);
                 }
-
-                if(isImageButton(btnRew))
-                {
-                    ImgBtnClick(btnRew);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_REWIND);
+                if(isButton(dvr_play)) {
+                    BtnClick(dvr_play); IR_TWC(TWC_CABLE, TWC_CABLE_PLAY);
                 }
-                
-                if(isImageButton(btnPlay))
-                {
-                    ImgBtnClick(btnPlay);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_PLAY);
+                if(isButton(dvr_ffw)) {
+                    BtnClick(dvr_ffw); IR_TWC(TWC_CABLE, TWC_CABLE_FFW);
                 }
-                
-                if(isImageButton(btnPause))
-                {
-                    ImgBtnClick(btnPause);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_PAUSE);
+                if(isButton(mute)) {
+                    BtnClick(mute); IR_DYNEX(DYNEX, DYNEX_TV,DYNEX_TV_MUTE);
                 }
-                
-                if(isImageButton(btnFfw))
-                {
-                    ImgBtnClick(btnFfw);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_FFW);
+                if(isButton(fav)) {
+                    BtnClick(fav); IR_TWC(TWC_CABLE, TWC_CABLE_FAV);
                 }
-                
-                if(isImageButton(btnRec))
-                {
-                    ImgBtnClick(btnRec);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_RECORD);
+                if(isButton(last)) {
+                    BtnClick(last); IR_TWC(TWC_CABLE, TWC_CABLE_LAST);
                 }
-
-                if(isImageButton(btnGuide))
-                {
-                    ImgBtnClick(btnGuide);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_GUIDE);
+                if(isButton(dp_up)) {
+                    BtnClick(dp_up); IR_TWC(TWC_CABLE, TWC_CABLE_UP);
+                }
+                if(isButton(dp_down)) {
+                    BtnClick(dp_down); IR_TWC(TWC_CABLE, TWC_CABLE_DOWN);
+                }
+                if(isButton(dp_right)) {
+                    BtnClick(dp_right); IR_TWC(TWC_CABLE, TWC_CABLE_RIGHT);
+                }
+                if(isButton(dp_left)) {
+                    BtnClick(dp_left); IR_TWC(TWC_CABLE, TWC_CABLE_LEFT);
+                }
+                if(isButton(dp_ok)) {
+                    BtnClick(dp_ok); IR_TWC(TWC_CABLE, TWC_CABLE_ENTER);
+                }
+                if(isButton(np_1)) {
+                    BtnClick(np_1);  IR_TWC(TWC_CABLE, TWC_CABLE_1);
+                }
+                if(isButton(np_2)) {
+                    BtnClick(np_2);  IR_TWC(TWC_CABLE, TWC_CABLE_2);
+                }
+                if(isButton(np_3)) {
+                    BtnClick(np_3);  IR_TWC(TWC_CABLE, TWC_CABLE_3);
+                }
+                if(isButton(np_4)) {
+                    BtnClick(np_4);  IR_TWC(TWC_CABLE, TWC_CABLE_4);
+                }
+                if(isButton(np_5)) {
+                    BtnClick(np_5);  IR_TWC(TWC_CABLE, TWC_CABLE_5);
+                }
+                if(isButton(np_6)) {
+                    BtnClick(np_6);  IR_TWC(TWC_CABLE, TWC_CABLE_6);
+                }
+                if(isButton(np_7)) {
+                    BtnClick(np_7);  IR_TWC(TWC_CABLE, TWC_CABLE_7);
+                }
+                if(isButton(np_8)) {
+                    BtnClick(np_8);  IR_TWC(TWC_CABLE, TWC_CABLE_8);
+                }
+                if(isButton(np_9)) {
+                    BtnClick(np_9);  IR_TWC(TWC_CABLE, TWC_CABLE_9);
+                }
+                if(isButton(np_s)) {
+                    BtnClick(np_s);  IR_TWC(TWC_CABLE, TWC_CABLE_STAR);
+                }
+                if(isButton(np_0)) {
+                    BtnClick(np_0);  IR_TWC(TWC_CABLE, TWC_CABLE_0);
+                }
+                if(isButton(np_p)) {
+                    BtnClick(np_p);  IR_TWC(TWC_CABLE, TWC_CABLE_POUND);
                 }
 
-                if(isImageButton(btnMenu))
-                {
-                    ImgBtnClick(btnMenu);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_MENU);
+                if(isButton(ch_dn)) {
+                    VOL_CH_Click(ch,1);  IR_TWC(TWC_CABLE, TWC_CABLE_CHDN);
+                }
+                if(isButton(ch_up)) {
+                    VOL_CH_Click(ch,0);  IR_TWC(TWC_CABLE, TWC_CABLE_CHUP);
+                }
+                if(isButton(vol_dn)) {
+                    VOL_CH_Click(vol,3);  IR_DYNEX(DYNEX, DYNEX_TV,DYNEX_TV_VOLDOWN);
+                }
+                if(isButton(vol_up)) {
+                    VOL_CH_Click(vol,2);  IR_DYNEX(DYNEX, DYNEX_TV,DYNEX_TV_VOLUP);
+                }
+                if(isButton(C_A)) {
+                    BtnClick(C_A);  IR_TWC(TWC_CABLE, TWC_CABLE_A);
+                }
+                if(isButton(C_B)) {
+                    BtnClick(C_B);  IR_TWC(TWC_CABLE, TWC_CABLE_B);
+                }
+                if(isButton(C_C)) {
+                    BtnClick(C_C);  IR_TWC(TWC_CABLE, TWC_CABLE_C);
+                }
+                if(isButton(C_D)) {
+                    BtnClick(C_D);  IR_TWC(TWC_CABLE, TWC_CABLE_D);
                 }
 
-                if(isImageButton(btnInfo))
-                {
-                    ImgBtnClick(btnInfo);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_INFO);
-                }
-
-                if(isImageButton(btnExit))
-                {
-                    ImgBtnClick(btnExit);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_EXIT);
-                }
-
-                if(isImageButton(btnHdmi))
-                {
-                    ImgBtnClick(btnHdmi);
-                    IR_DYNEX(DYNEX, DYNEX_TV,DYNEX_TV_HDMI);
-                }
-
-                if(isImageButton(btnVolU))
-                {
-                    ImgBtnClick(btnVolU);
-                    IR_DYNEX(DYNEX, DYNEX_TV,DYNEX_TV_VOLUP);
-                }
-
-                if(isImageButton(btnVolD))
-                {
-                    ImgBtnClick(btnVolD);
-                    IR_DYNEX(DYNEX, DYNEX_TV,DYNEX_TV_VOLDOWN);
-                }
-
-                if(isImageButton(btnChU))
-                {
-                    ImgBtnClick(btnChU);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_CHUP);
-                }
-
-                if(isImageButton(btnChD))
-                {
-                    ImgBtnClick(btnChD);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_CHDN);
-                }
-
-                if(isImageButton(btnUp))
-                {
-                    ImgBtnClick(btnUp);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_UP);
-                }
-                if(isImageButton(btnLeft))
-                {
-                    ImgBtnClick(btnLeft);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_LEFT);
-                }
-                if(isImageButton(btnRight))
-                {
-                    ImgBtnClick(btnRight);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_RIGHT);
-                }
-                if(isImageButton(btnDown))
-                {
-                    ImgBtnClick(btnDown);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_DOWN);
-                }
-                if(isImageButton(btnEnter))
-                {
-                    ImgBtnClick(btnEnter);
-                    IR_TWC(TWC_CABLE, TWC_CABLE_ENTER);
-                }
-
-
-
+                Delay1ms(10 );
             }while(isPEN()==0);
 
 
@@ -576,308 +376,293 @@ void main ()
         }
     }
 }
+void InitButtons (void)
+{
+    // TV POWER
+    tv_power.top = 32;
+    tv_power.left = 57;
+    tv_power.height = 71;
+    tv_power.width = 62;
+
+    // CablePOWER
+    power.top = 32;
+    power.left = 678;
+    power.height = 71;
+    power.width = 62;
+
+    //MAIN BUTTONS
+    guide.top = 30;
+    guide.left = 231;
+    guide.height = 60;
+    guide.width = 60;
+
+    menu.top = 30;
+    menu.left = 303;
+    menu.height = 60;
+    menu.width = 60;
+
+    info.top = 30;
+    info.left = 373;
+    info.height = 60;
+    info.width = 60;
+
+    source.top = 30;
+    source.left = 443;
+    source.height = 60;
+    source.width = 60;
+
+    Exit.top = 30;
+    Exit.left = 513;
+    Exit.height = 60;
+    Exit.width = 60;
+
+    //Quick
+    mute.top = 336;
+    mute.left = 615;
+    mute.height = 60;
+    mute.width = 60;
+
+    fav.top = 396;
+    fav.left = 664;
+    fav.height = 60;
+    fav.width = 60;
+    
+    last.top = 336;
+    last.left = 713;
+    last.height = 60;
+    last.width = 60;
+
+    //Num PAD
+    np_1.top = 151;
+    np_1.left = 318;
+    np_1.height = 39;
+    np_1.width = 54;
+
+    np_2.top = 151;
+    np_2.left = 373;
+    np_2.height = 39;
+    np_2.width = 54;
+
+    np_3.top = 151;
+    np_3.left = 429;
+    np_3.height = 39;
+    np_3.width = 54;
+
+    np_4.top = 189;
+    np_4.left = 318;
+    np_4.height = 39;
+    np_4.width = 54;
+
+    np_5.top = 189;
+    np_5.left = 373;
+    np_5.height = 39;
+    np_5.width = 54;
+
+    np_6.top = 189;
+    np_6.left = 429;
+    np_6.height = 39;
+    np_6.width = 54;
+
+    np_7.top = 225;
+    np_7.left = 318;
+    np_7.height = 39;
+    np_7.width = 54;
+
+    np_8.top = 225;
+    np_8.left = 373;
+    np_8.height = 39;
+    np_8.width = 54;
+
+    np_9.top = 225;
+    np_9.left = 429;
+    np_9.height = 39;
+    np_9.width = 54;
+
+    np_s.top = 262;
+    np_s.left = 318;
+    np_s.height = 39;
+    np_s.width = 54;
+
+    np_0.top = 262;
+    np_0.left = 373;
+    np_0.height = 39;
+    np_0.width = 54;
+
+    np_p.top = 262;
+    np_p.left = 429;
+    np_p.height = 39;
+    np_p.width = 54;
+
+    //DVR Controls
+    dvr_jmp.top = 322;
+    dvr_jmp.left = 317;
+    dvr_jmp.height = 47;
+    dvr_jmp.width = 56;
+
+    dvr_list.top = 322;
+    dvr_list.left = 373;
+    dvr_list.height = 47;
+    dvr_list.width = 56;
+
+    dvr_live.top = 322;
+    dvr_live.left = 429;
+    dvr_live.height = 47;
+    dvr_live.width = 56;
+
+    dvr_stop.top = 371;
+    dvr_stop.left = 317;
+    dvr_stop.height = 40;
+    dvr_stop.width = 56;
+
+    dvr_rec.top = 371;
+    dvr_rec.left = 373;
+    dvr_rec.height = 40;
+    dvr_rec.width = 56;
+
+    dvr_pause.top = 371;
+    dvr_pause.left = 429;
+    dvr_pause.height = 40;
+    dvr_pause.width = 56;
+
+    dvr_rew.top = 408;
+    dvr_rew.left = 317;
+    dvr_rew.height = 40;
+    dvr_rew.width = 56;
+
+    dvr_play.top = 408;
+    dvr_play.left = 373;
+    dvr_play.height = 40;
+    dvr_play.width = 56;
+
+    dvr_ffw.top = 408;
+    dvr_ffw.left = 429;
+    dvr_ffw.height = 40;
+    dvr_ffw.width = 56;
+
+    // Direction pad
+    dp_up.top = 188;
+    dp_up.left = 673;
+    dp_up.height = 38;
+    dp_up.width = 38;
+
+    dp_right.top = 232;
+    dp_right.left = 717;
+    dp_right.height = 38;
+    dp_right.width = 38;
+
+    dp_down.top = 276;
+    dp_down.left = 673;
+    dp_down.height = 38;
+    dp_down.width = 38;
+
+    dp_left.top = 232;
+    dp_left.left = 627;
+    dp_left.height = 38;
+    dp_left.width = 38;
+
+    dp_ok.top = 226;
+    dp_ok.left = 666;
+    dp_ok.height = 48;
+    dp_ok.width = 48;
+
+    ch.top = 170;
+    ch.left = 502;
+    ch.height = 113;
+    ch.width = 38;
+
+    vol.top = 170;
+    vol.left = 256;
+    vol.height = 113;
+    vol.width = 38;
+
+    ch_up.top = 170;
+    ch_up.left = 502;
+    ch_up.width = 38;
+    ch_up.height = 56;
+
+    ch_dn.top = 226;
+    ch_dn.left = 502;
+    ch_dn.width = 38;
+    ch_dn.height = 56;
+
+    vol_up.top = 170;
+    vol_up.left = 256;
+    vol_up.width = 38;
+    vol_up.height = 56;
+
+    vol_dn.top = 226;
+    vol_dn.left = 256;
+    vol_dn.width = 38;
+    vol_dn.height = 56;
+
+    C_A.height = 40;
+    C_A.width = 71;
+    C_A.left = 112;
+    C_A.top = 346;
+
+    C_B.height = 40;
+    C_B.width = 71;
+    C_B.left = 194;
+    C_B.top = 346;
+
+    C_C.height = 40;
+    C_C.width = 71;
+    C_C.left = 112;
+    C_C.top = 396;
+
+    C_D.height = 40;
+    C_D.width = 71;
+    C_D.left = 194;
+    C_D.top = 396;
+
+}
+void VOL_CH_Click(Button btn, uint ID)
+{
+    switch(ID)
+    {
+        case 0: //CH UP
+            OpenASI("chup.asi",btn.left,btn.top);
+            break;
+        case 1: //CH DOWN
+            OpenASI("chdn.asi",btn.left,btn.top);
+            break;
+        case 2: //VOL UP
+            OpenASI("volup.asi",btn.left,btn.top);
+            break;
+        case 3: //VOL DOWN
+            OpenASI("voldn.asi",btn.left,btn.top);
+            break;
+    }
+
+    Delay1ms(1);
+
+    switch(ID)
+    {
+        case 0: //NO CHAN
+        case 1:
+            OpenASI("ch.asi",btn.left,btn.top);
+            break;
+        case 2: //NO VOL
+        case 3:
+            OpenASI("vol.asi",btn.left,btn.top);
+            break;
+    }
+}
+void BtnClick(Button btn)
+{
+    ReplaceASI("dmain.asi",btn.left,btn.top,btn.width,btn.height);
+    //while(isPEN()==0);
+    Delay1ms(1);
+    ReplaceASI("main.asi",btn.left,btn.top,btn.width,btn.height);
+}
+
 void ImgBtnClick(ImageButton btn)
 {
     OpenASI(btn.down,btn.left,btn.top);
     Delay1ms(3);
     OpenASI(btn.up,btn.left,btn.top);
 }
-void InitButtons (void)
-{
-    int SHIFT_LEFT = 5;
 
-    uint NPAD_LEFT = 290+SHIFT_LEFT;
-    uint NPAD_TOP = 100;
-
-    uint DVR_LEFT = 140+SHIFT_LEFT;
-    uint DVR_TOP = 370;
-
-    uint main_btn_left = 105+SHIFT_LEFT;
-    uint main_btn_top = 10;
-
-    uint vol_top = 155;
-    uint vol_left = 230+SHIFT_LEFT;
-
-    uint ch_top = vol_top;
-    uint ch_left = vol_left + 265+SHIFT_LEFT;
-
-    uint dpad_c_top = 205;
-    uint dpad_c_left = 650;
-
-    btnVolU.height = 73;
-    btnVolU.width = 63;
-    btnVolU.top = vol_top;
-    btnVolU.left = vol_left;
-    sprintf(btnVolU.up, "plus.asi");
-    sprintf(btnVolU.down, "dplus.asi");
-
-    btnVolD.height = 73;
-    btnVolD.width = 63;
-    btnVolD.top = vol_top+73;
-    btnVolD.left = vol_left;
-    sprintf(btnVolD.up, "min.asi");
-    sprintf(btnVolD.down, "dmin.asi");
-
-    btnChU.height = 73;
-    btnChU.width = 63;
-    btnChU.top = ch_top;
-    btnChU.left = ch_left;
-    sprintf(btnChU.up, "plus.asi");
-    sprintf(btnChU.down, "dplus.asi");
-
-    btnChD.height = 73;
-    btnChD.width = 63;
-    btnChD.top = ch_top+73;
-    btnChD.left = ch_left;
-    sprintf(btnChD.up, "min.asi");
-    sprintf(btnChD.down, "dmin.asi");
-
-    //DVR
-    btnStop.height = 80;
-    btnStop.width = 80;
-    btnStop.top = DVR_TOP;
-    btnStop.left = DVR_LEFT;
-    sprintf(btnStop.up, "stop.asi");
-    sprintf(btnStop.down, "dstop.asi");
-
-    btnRew.height = 80;
-    btnRew.width = 80;
-    btnRew.top = DVR_TOP;
-    btnRew.left = btnStop.left+84;
-    sprintf(btnRew.up, "rew.asi");
-    sprintf(btnRew.down, "drew.asi");
-
-    btnPlay.height = 80;
-    btnPlay.width = 80;
-    btnPlay.top = DVR_TOP;
-    btnPlay.left = btnRew.left+84;
-    sprintf(btnPlay.up, "play.asi");
-    sprintf(btnPlay.down, "dplay.asi");
-
-    btnPause.height = 80;
-    btnPause.width = 80;
-    btnPause.top = DVR_TOP;
-    btnPause.left = btnPlay.left+84;
-    sprintf(btnPause.up, "pause.asi");
-    sprintf(btnPause.down, "dpause.asi");
-
-    btnFfw.height = 80;
-    btnFfw.width = 80;
-    btnFfw.top = DVR_TOP;
-    btnFfw.left = btnPause.left+84;
-    sprintf(btnFfw.up, "ffw.asi");
-    sprintf(btnFfw.down, "dffw.asi");
-
-    btnRec.height = 80;
-    btnRec.width = 80;
-    btnRec.top = DVR_TOP;
-    btnRec.left = btnFfw.left+84+30;
-    sprintf(btnRec.up, "rec.asi");
-    sprintf(btnRec.down, "drec.asi");
-
-    //ROW 1
-    btnOne.height = 63;
-    btnOne.width = 70;
-    btnOne.top = NPAD_TOP;
-    btnOne.left = NPAD_LEFT;
-    sprintf(btnOne.up, "one.asi");
-    sprintf(btnOne.down, "done.asi");
-
-    btnTwo.height = 63;
-    btnTwo.width = 70;
-    btnTwo.top = NPAD_TOP;
-    btnTwo.left = btnOne.left + 70;
-    sprintf(btnTwo.up, "two.asi");
-    sprintf(btnTwo.down, "dtwo.asi");
-
-    btnThree.height = 63;
-    btnThree.width = 70;
-    btnThree.top = NPAD_TOP;
-    btnThree.left = btnTwo.left + 70;
-    sprintf(btnThree.up, "three.asi");
-    sprintf(btnThree.down, "dthree.asi");
-
-    NPAD_TOP += 63;
-    //ROW 2
-    btnFour.height = 63;
-    btnFour.width = 70;
-    btnFour.top = NPAD_TOP;
-    btnFour.left = btnOne.left;
-    sprintf(btnFour.up, "four.asi");
-    sprintf(btnFour.down, "dfour.asi");
-
-    btnFive.height = 63;
-    btnFive.width = 70;
-    btnFive.top = NPAD_TOP;
-    btnFive.left = btnFour.left + 70;
-    sprintf(btnFive.up, "five.asi");
-    sprintf(btnFive.down, "dfive.asi");
-
-    btnSix.height = 63;
-    btnSix.width = 70;
-    btnSix.top = NPAD_TOP;
-    btnSix.left = btnFive.left + 70;
-    sprintf(btnSix.up, "six.asi");
-    sprintf(btnSix.down, "dsix.asi");
-
-    NPAD_TOP += 63;
-    //ROW 3
-    btnSeven.height = 63;
-    btnSeven.width = 70;
-    btnSeven.top = NPAD_TOP;
-    btnSeven.left = btnOne.left;
-    sprintf(btnSeven.up, "seven.asi");
-    sprintf(btnSeven.down, "dseven.asi");
-
-    btnEight.height = 63;
-    btnEight.width = 70;
-    btnEight.top = NPAD_TOP;
-    btnEight.left = btnSeven.left + 70;
-    sprintf(btnEight.up, "eight.asi");
-    sprintf(btnEight.down, "deight.asi");
-
-    btnNine.height = 63;
-    btnNine.width = 70;
-    btnNine.top = NPAD_TOP;
-    btnNine.left = btnEight.left + 70;
-    sprintf(btnNine.up, "nine.asi");
-    sprintf(btnNine.down, "dnine.asi");
-
-    NPAD_TOP+=63;
-    //ROW 4
-    btnStar.height = 63;
-    btnStar.width = 70;
-    btnStar.top = NPAD_TOP;
-    btnStar.left = btnOne.left;
-    sprintf(btnStar.up, "star.asi");
-    sprintf(btnStar.down, "dstar.asi");
-
-    btnZero.height = 63;
-    btnZero.width = 70;
-    btnZero.top = NPAD_TOP;
-    btnZero.left = btnStar.left + 70;
-    sprintf(btnZero.up, "zero.asi");
-    sprintf(btnZero.down, "dzero.asi");
-
-    btnPound.height = 63;
-    btnPound.width = 70;
-    btnPound.top = NPAD_TOP;
-    btnPound.left = btnZero.left + 70;
-    sprintf(btnPound.up, "pund.asi");
-    sprintf(btnPound.down, "dpound.asi");
-
-    //MAIN
-    btnGuide.height = 63;
-    btnGuide.width = 120;
-    btnGuide.top = main_btn_top;
-    btnGuide.left = main_btn_left;
-    sprintf(btnGuide.up, "guide.asi");
-    sprintf(btnGuide.down, "dguide.asi");
-
-    btnMenu.height = 63;
-    btnMenu.width = 120;
-    btnMenu.top = main_btn_top;
-    btnMenu.left = btnGuide.left+120;
-    sprintf(btnMenu.up, "menu.asi");
-    sprintf(btnMenu.down, "dmenu.asi");
-
-    btnInfo.height = 63;
-    btnInfo.width = 120;
-    btnInfo.top = main_btn_top;
-    btnInfo.left = btnMenu.left+120;
-    sprintf(btnInfo.up, "info.asi");
-    sprintf(btnInfo.down, "dinfo.asi");
-
-    btnExit.height = 63;
-    btnExit.width = 120;
-    btnExit.top = main_btn_top;
-    btnExit.left = btnInfo.left+120;
-    sprintf(btnExit.up, "exit.asi");
-    sprintf(btnExit.down, "dexit.asi");
-
-    btnHdmi.height = 63;
-    btnHdmi.width = 120;
-    btnHdmi.top = main_btn_top;
-    btnHdmi.left = btnExit.left+120;
-    sprintf(btnHdmi.up, "hdmi.asi");
-    sprintf(btnHdmi.down, "dhdmi.asi");
-
-    //DPAD
-
-    btnEnter.height = 42;
-    btnEnter.width = 42;
-    btnEnter.top = dpad_c_top;
-    btnEnter.left = dpad_c_left;
-    sprintf(btnEnter.up, "enter.asi");
-    sprintf(btnEnter.down, "denter.asi");
-
-    btnUp.height = 40;
-    btnUp.width = 42;
-    btnUp.top = dpad_c_top - 42;
-    btnUp.left = dpad_c_left;
-    sprintf(btnUp.up, "up.asi");
-    sprintf(btnUp.down, "dup.asi");
-
-    btnDown.height = 40;
-    btnDown.width = 42;
-    btnDown.top = dpad_c_top + 42;
-    btnDown.left = dpad_c_left;
-    sprintf(btnDown.up, "down.asi");
-    sprintf(btnDown.down, "ddown.asi");
-
-    btnLeft.height = 42;
-    btnLeft.width = 40;
-    btnLeft.top = dpad_c_top;
-    btnLeft.left = dpad_c_left - 40;
-    sprintf(btnLeft.up, "left.asi");
-    sprintf(btnLeft.down, "dleft.asi");
-
-    btnRight.height = 42;
-    btnRight.width = 40;
-    btnRight.top = dpad_c_top ;
-    btnRight.left = dpad_c_left + 40;
-    sprintf(btnRight.up, "right.asi");
-    sprintf(btnRight.down, "dright.asi");
-
-    //DRAW THEM ALL
-
-    OpenASI(btnRew.up,btnRew.left,btnRew.top);
-    OpenASI(btnStop.up,btnStop.left,btnStop.top);
-    OpenASI(btnPlay.up,btnPlay.left,btnPlay.top);
-    OpenASI(btnPause.up,btnPause.left,btnPause.top);
-    OpenASI(btnFfw.up,btnFfw.left,btnFfw.top);
-    OpenASI(btnRec.up,btnRec.left,btnRec.top);
-    
-    OpenASI(btnOne.up,btnOne.left,btnOne.top);
-    OpenASI(btnTwo.up,btnTwo.left,btnTwo.top);
-    OpenASI(btnThree.up,btnThree.left,btnThree.top);
-    OpenASI(btnFour.up,btnFour.left,btnFour.top);
-    OpenASI(btnFive.up,btnFive.left,btnFive.top);
-    OpenASI(btnSix.up,btnSix.left,btnSix.top);
-    OpenASI(btnSeven.up,btnSeven.left,btnSeven.top);
-    OpenASI(btnEight.up,btnEight.left,btnEight.top);
-    OpenASI(btnNine.up,btnNine.left,btnNine.top);
-    OpenASI(btnStar.up,btnStar.left,btnStar.top);
-    OpenASI(btnZero.up,btnZero.left,btnZero.top);
-    OpenASI(btnPound.up,btnPound.left,btnPound.top);
-
-    OpenASI(btnGuide.up,btnGuide.left,btnGuide.top);
-    OpenASI(btnMenu.up,btnMenu.left,btnMenu.top);
-    OpenASI(btnInfo.up,btnInfo.left,btnInfo.top);
-    OpenASI(btnExit.up,btnExit.left,btnExit.top);
-    OpenASI(btnHdmi.up,btnHdmi.left,btnHdmi.top);
-
-    OpenASI(btnVolU.up,btnVolU.left,btnVolU.top);
-    OpenASI(btnVolD.up,btnVolD.left,btnVolD.top);
-    OpenASI(btnChU.up,btnChU.left,btnChU.top);
-    OpenASI(btnChD.up,btnChD.left,btnChD.top);
-
-    OpenASI(btnUp.up,btnUp.left,btnUp.top);
-    OpenASI(btnDown.up,btnDown.left,btnDown.top);
-    OpenASI(btnLeft.up,btnLeft.left,btnLeft.top);
-    OpenASI(btnRight.up,btnRight.left,btnRight.top);
-    OpenASI(btnEnter.up,btnEnter.left,btnEnter.top);
-}
 
 char isButton( Button btn)
 {
